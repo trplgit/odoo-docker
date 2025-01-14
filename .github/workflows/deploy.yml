@@ -25,14 +25,19 @@ jobs:
       - name: Checkout Odoo Repository
         uses: actions/checkout@v3
         with:
-          repository: trplgit/odoo-docker  # Replace with your Odoo repository name
+          repository: trplgit/odoo-docker
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout PostgreSQL Repository
         uses: actions/checkout@v3
         with:
-          repository: trplgit/postgres  # Replace with your PostgreSQL repository name
+          repository: trplgit/postgres
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker
+        uses: docker/setup-buildx-action@v2
+        with:
+          version: latest
 
       - name: Log in to Azure Container Registry
         uses: azure/docker-login@v1
