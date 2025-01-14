@@ -14,7 +14,7 @@ on:
       odoo_version:
         description: 'Odoo Version'
         required: true
-        default: '18'
+        default: '18.0'
 
 jobs:
   build-and-push:
