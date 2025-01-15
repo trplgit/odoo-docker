@@ -1,7 +1,7 @@
 name: CI/CD for Odoo Docker
 
 on:
-  workflow_dispatch: # Manual trigger
+  workflow_dispatch:  # Manual trigger
     inputs:
       environment:
         description: 'Environment to deploy (Development/Production)'
@@ -58,9 +58,8 @@ jobs:
           ls -R ./18.0  # Check if the 18.0 directory exists
           
           # Build Docker image for Odoo from the 18.0 directory
-         docker build -f ./18.0/Dockerfile -t my-odoo-image ./  # Ensure the context is pointing to the correct root directory
+          docker build -f ./18.0/Dockerfile -t my-odoo-image ./  # Ensure the context is pointing to the correct root directory
 
-          
           # Push Docker image to Azure Container Registry
           docker push ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/odoo-docker:${{ inputs.odoo_version }}
 
