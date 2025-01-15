@@ -1,4 +1,4 @@
-name: CI/CD for Odoo Docker 
+name: CI/CD for Odoo Docker
 
 on:
   workflow_dispatch: # Manual trigger
@@ -51,16 +51,6 @@ jobs:
           echo "Checking contents inside the 18.0 folder in Odoo Docker repository"
           ls -R ./18.0  # List contents inside the 18.0 folder
 
-      # Debugging: List files before Docker build
-      - name: List files before Docker build
-        run: |
-          echo "Listing files in the repository before build"
-          ls -R ./ 
-
-      # Debugging: Check Docker version
-      - name: Check Docker version
-        run: docker --version
-
       # Build and Push Odoo Docker Image
       - name: Build and Push Odoo Docker Image
         run: |
@@ -68,7 +58,7 @@ jobs:
           ls -R ./18.0  # Check if the 18.0 directory exists
           
           # Build Docker image for Odoo from the 18.0 directory
-          docker build -f ./18.0/Dockerfile -t my-odoo-image ./  # Ensure the context is pointing to the correct root directory
+          docker build -f ./18.0/Dockerfile -t my-odoo-image .  # Use the root directory (.) as the build context
           
           # Push Docker image to Azure Container Registry
           docker push ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/odoo-docker:${{ inputs.odoo_version }}
@@ -110,17 +100,4 @@ jobs:
         uses: appleboy/ssh-action@v0.1.6
         with:
           host: ${{ vars.LINUX_VM_HOST_DEVELOPMENT }}
-          username: ${{ vars.LINUX_VM_USERNAME_DEVELOPMENT }}
-          password: ${{ secrets.LINUX_VM_PASSWORD_DEVELOPMENT }}
-          port: 22
-          script: |
-            echo "${{ secrets.LINUX_VM_PASSWORD_DEVELOPMENT }}" | sudo -S docker login ${{ vars.ACR_NAME }}.azurecr.io -u ${{ vars.ACR_USERNAME }} -p ${{ secrets.ACR_PASSWORD }}
-            echo "${{ secrets.LINUX_VM_PASSWORD_DEVELOPMENT }}" | sudo -S docker pull ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/odoo-docker:${{ inputs.odoo_version }}
-            echo "${{ secrets.LINUX_VM_PASSWORD_DEVELOPMENT }}" | sudo -S docker stop odoo-container || true
-            echo "${{ secrets.LINUX_VM_PASSWORD_DEVELOPMENT }}" | sudo -S docker rm odoo-container || true
-            echo "${{ secrets.LINUX_VM_PASSWORD_DEVELOPMENT }}" | sudo -S docker run -d --restart always --name odoo-container --network=odoo-postgres-network -p 8069:8069 ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/odoo-docker:${{ inputs.odoo_version }}
-
-      # Cleanup VPN credentials
-      - name: Cleanup VPN Credentials
-        run: |
-          rm -f vpn-config.ovpn vpn-credentials.txt
+          username: ${{ vars.LINUX_VM_USERNAME_DEVELO
