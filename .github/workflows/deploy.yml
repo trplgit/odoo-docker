@@ -61,7 +61,7 @@ jobs:
         run: |
           # Ensure we're in the correct directory for the Odoo Dockerfile
           echo "Checking Odoo Docker directory structure"
-          ls -R ./odoo-docker/${{ inputs.odoo_version }}  # List contents of Odoo version folder
+          ls -R ./${{ inputs.odoo_version }}  # List contents of Odoo version folder
           
           docker build --no-cache -f ./${{ inputs.odoo_version }}/Dockerfile -t ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/odoo-docker:${{ inputs.odoo_version }} ./18.0
           docker push ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/odoo-docker:${{ inputs.odoo_version }}
