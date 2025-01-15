@@ -56,11 +56,11 @@ jobs:
           echo "Listing the directory structure of the repository"
           ls -R .  # List all files and directories recursively
 
-      # Check the contents of the 18.0 folder
-      - name: Check 18.0 directory
+      # Check the contents of the 17.0 folder (if 18.0 is missing)
+      - name: Check 17.0 directory
         run: |
-          echo "Checking contents inside the 18.0 folder"
-          ls -R ./18.0  # List files inside the 18.0 folder
+          echo "Checking contents inside the 17.0 folder"
+          ls -R ./17  # List files inside the 17 folder
 
       # Build and Push PostgreSQL Docker Image
       - name: Build and Push PostgreSQL Docker Image
@@ -71,10 +71,10 @@ jobs:
       # Build and Push Odoo Docker Image
       - name: Build and Push Odoo Docker Image
         run: |
-          # Ensure the 18.0 directory exists and the Dockerfile is accessible
-          ls -R ./18.0  # Debugging step to check if the folder exists
+          # Ensure the 17.0 directory exists and the Dockerfile is accessible
+          ls -R ./17  # Check if the 17.0 directory exists
           
-          docker build --no-cache -f ./18.0/Dockerfile -t ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/odoo-docker:${{ inputs.odoo_version }} .
+          docker build --no-cache -f ./17/Dockerfile -t ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/odoo-docker:${{ inputs.odoo_version }} .
           docker push ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/odoo-docker:${{ inputs.odoo_version }}
 
   deploy:
