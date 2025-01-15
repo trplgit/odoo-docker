@@ -27,7 +27,7 @@ jobs:
         with:
           repository: trplgit/odoo-docker
           token: ${{ secrets.GITHUB_TOKEN }}
-
+          
       - name: Checkout PostgreSQL Repository
         uses: actions/checkout@v3
         with:
@@ -46,14 +46,36 @@ jobs:
           username: ${{ vars.ACR_USERNAME }}
           password: ${{ secrets.ACR_PASSWORD }}
 
+      # Check directory structure for troubleshooting
+      - name: Check Odoo Docker directory structure
+        run: |
+          echo "Checking Odoo Docker directory structure"
+          ls -R odoo-docker
+          
+      - name: Check PostgreSQL Docker directory structure
+        run: |
+          echo "Checking PostgreSQL Docker directory structure"
+          ls -R .
+
       - name: Build and Push PostgreSQL Docker Image
         run: |
-          docker build -f ${{ inputs.postgres_version }}/alpine3.21/Dockerfile -t ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/postgres:${{ inputs.postgres_version }} ./
+          echo "Building PostgreSQL Docker Image"
+          docker build -f ${{ inputs.postgres_version }}/alpine3.21/Dockerfile -t ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/postgres:${{ inputs.postgres_version }} ./ 
           docker push ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/postgres:${{ inputs.postgres_version }}
+
+      - name: Check if Odoo Dockerfile exists
+        run: |
+          if [ ! -f "odoo-docker/${{ inputs.odoo_version }}/Dockerfile" ]; then
+            echo "Odoo Dockerfile not found!"
+            exit 1
+          else
+            echo "Odoo Dockerfile found!"
+          fi
 
       - name: Build and Push Odoo Docker Image
         run: |
-          docker build --no-cache -f odoo-docker/${{ inputs.odoo_version }}/Dockerfile -t ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/odoo-docker:${{ inputs.odoo_version }} .
+          echo "Building Odoo Docker Image"
+          docker build --no-cache -f odoo-docker/${{ inputs.odoo_version }}/Dockerfile -t ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/odoo-docker:${{ inputs.odoo_version }} . --progress=plain
           docker push ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/odoo-docker:${{ inputs.odoo_version }}
 
   deploy:
