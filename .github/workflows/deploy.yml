@@ -53,7 +53,7 @@ jobs:
       # Build and Push PostgreSQL Docker Image
       - name: Build and Push PostgreSQL Docker Image
         run: |
-          docker build -f ./postgres/${{ inputs.postgres_version }}/alpine3.21/Dockerfile -t ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/postgres:${{ inputs.postgres_version }} ./postgres
+          docker build -f ${{ inputs.postgres_version }}/alpine3.21/Dockerfile -t ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/postgres:${{ inputs.postgres_version }} ./
           docker push ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/postgres:${{ inputs.postgres_version }}
 
       # Build and Push Odoo Docker Image
