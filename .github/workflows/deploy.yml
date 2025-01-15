@@ -1,7 +1,7 @@
-name: CI/CD for Odoo Docker
+name: Check Docker Build for Odoo
 
 on:
-  workflow_dispatch: # Manual trigger
+  workflow_dispatch:  # Manual trigger
     inputs:
       environment:
         description: 'Environment to deploy (Development/Production)'
@@ -13,8 +13,8 @@ on:
         default: '18.0'
 
 jobs:
-  build-and-push:
-    name: Build and Push Docker Image for Odoo
+  build:
+    name: Build Docker Image for Odoo
     runs-on: ubuntu-latest
 
     steps:
@@ -31,14 +31,6 @@ jobs:
         with:
           version: latest
 
-      # Log in to Azure Container Registry
-      - name: Log in to Azure Container Registry
-        uses: azure/docker-login@v1
-        with:
-          login-server: ${{ vars.ACR_NAME }}.azurecr.io
-          username: ${{ vars.ACR_USERNAME }}
-          password: ${{ secrets.ACR_PASSWORD }}
-
       # Verify Odoo Docker repository directory structure
       - name: List Odoo Docker repository structure
         run: |
@@ -51,53 +43,14 @@ jobs:
           echo "Checking contents inside the 18.0 folder in Odoo Docker repository"
           ls -R ./18.0  # List contents inside the 18.0 folder
 
-      # Build and Push Odoo Docker Image
-      - name: Build and Push Odoo Docker Image
+      # Build Docker image for Odoo
+      - name: Build Docker image
         run: |
-          # Ensure the 18.0 directory exists and the Dockerfile is accessible
-          ls -R ./18.0  # Check if the 18.0 directory exists
-          
-          # Build Docker image for Odoo from the 18.0 directory
-          docker build -f ./18.0/Dockerfile -t my-odoo-image .  # Use the root directory (.) as the build context
-          
-          # Push Docker image to Azure Container Registry
-          docker push ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/odoo-docker:${{ inputs.odoo_version }}
+          echo "Building Docker image from ./18.0/Dockerfile"
+          docker build -f ./18.0/Dockerfile -t my-odoo-image .
 
-  deploy:
-    name: Deploy to Linux VM
-    runs-on: ubuntu-latest
-    needs: build-and-push
-
-    steps:
-      # Install OpenVPN
-      - name: Install OpenVPN
-        run: sudo apt-get install -y openvpn
-
-      # Prepare VPN files
-      - name: Prepare VPN Files
+      # Verify Docker image is built
+      - name: Verify Docker image
         run: |
-          echo "${{ secrets.VPN_PKCS12_FILE }}" | base64 -d > TRPL-FW-TCP-1194-ci-cd-automation.p12
-          echo "${{ secrets.VPN_TLS_KEY_FILE }}" | base64 -d > TRPL-FW-TCP-1194-ci-cd-automation-tls.key
-
-      # Connect to VPN
-      - name: Connect to VPN
-        run: |
-          echo "${{ secrets.VPN_CONFIG_FILE }}" > vpn-config.ovpn
-          echo -e "${{ vars.VPN_USERNAME }}\n${{ secrets.VPN_PASSWORD }}" > vpn-credentials.txt
-          sudo openvpn --config vpn-config.ovpn --auth-user-pass vpn-credentials.txt --daemon
-
-      # Wait for VPN connection
-      - name: Wait for VPN Connection
-        run: sleep 15
-
-      # Verify VPN connection
-      - name: Verify VPN Connection
-        run: |
-          ifconfig | grep tun || (echo "VPN connection failed" && exit 1)
-
-      # Deploy Odoo Docker container to VM
-      - name: Deploy Odoo Docker Container to VM
-        uses: appleboy/ssh-action@v0.1.6
-        with:
-          host: ${{ vars.LINUX_VM_HOST_DEVELOPMENT }}
-          username: ${{ vars.LINUX_VM_USERNAME_DEVELO
+          echo "Listing Docker images"
+          docker images | grep my-odoo-image
