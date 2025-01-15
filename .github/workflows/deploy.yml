@@ -1,4 +1,4 @@
-name: Check Docker Build for Odoo
+name: CI/CD for Odoo Docker
 
 on:
   workflow_dispatch:  # Manual trigger
@@ -13,8 +13,8 @@ on:
         default: '18.0'
 
 jobs:
-  build:
-    name: Build Docker Image for Odoo
+  build-and-push:
+    name: Build and Push Docker Image for Odoo
     runs-on: ubuntu-latest
 
     steps:
@@ -22,14 +22,7 @@ jobs:
       - name: Checkout Odoo Repository
         uses: actions/checkout@v3
         with:
-          repository: trplgit/odoo-docker
           token: ${{ secrets.GITHUB_TOKEN }}
-
-      # Set up Docker buildx
-      - name: Set up Docker
-        uses: docker/setup-buildx-action@v2
-        with:
-          version: latest
 
       # Verify Odoo Docker repository directory structure
       - name: List Odoo Docker repository structure
@@ -43,14 +36,14 @@ jobs:
           echo "Checking contents inside the 18.0 folder in Odoo Docker repository"
           ls -R ./18.0  # List contents inside the 18.0 folder
 
-      # Build Docker image for Odoo
-      - name: Build Docker image
+      # Build Docker image for Odoo from 18.0 directory
+      - name: Build Docker image for Odoo from 18.0 directory
         run: |
-          echo "Building Docker image from ./18.0/Dockerfile"
-          docker build -f ./18.0/Dockerfile -t my-odoo-image .
+          # Ensure the 18.0 directory exists and the Dockerfile is accessible
+          ls -R ./18.0  # Check if the 18.0 directory exists
+          
+          # Build Docker image for Odoo from the 18.0 directory
+          docker build -f ./18.0/Dockerfile -t my-odoo-image ./  # Build the Docker image with the right context (root directory)
 
-      # Verify Docker image is built
-      - name: Verify Docker image
-        run: |
-          echo "Listing Docker images"
-          docker images | grep my-odoo-image
+          # Push Docker image to Azure Container Registry
+          docker push ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/odoo-docker:${{ inputs.odoo_version }}
