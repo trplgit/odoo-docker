@@ -1,7 +1,7 @@
 name: CI/CD for Odoo Docker
 
 on:
-  workflow_dispatch:  # Manual trigger
+  workflow_dispatch: # Manual trigger
     inputs:
       environment:
         description: 'Environment to deploy (Development/Production)'
@@ -45,25 +45,18 @@ jobs:
           echo "Listing the directory structure of the Odoo Docker repository"
           ls -R ./  # List all files and directories recursively after checkout
 
-      # Check if 18.0 folder exists
+      # Check if 18.0 folder exists in Odoo Docker repository
       - name: Check 18.0 directory inside Odoo Docker repository
         run: |
           echo "Checking contents inside the 18.0 folder in Odoo Docker repository"
-          ls -R ./18.0 || echo "Directory 18.0 does not exist"
+          ls -R ./18.0  # List contents inside the 18.0 folder
 
-      # Build the Docker image and tag it correctly
-      - name: Build Docker Image
+      # Build and Push Odoo Docker Image
+      - name: Build and Push Odoo Docker Image
         run: |
-          docker build -f ./18.0/Dockerfile -t ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/odoo-docker:${{ inputs.odoo_version }} ./18.0
-
-      # Debugging: List local Docker images
-      - name: List Local Docker Images
-        run: |
-          docker images
-
-      # Push Docker image to Azure Container Registry
-      - name: Push Docker Image
-        run: |
+          # Ensure the Docker context is set to the 18.0 directory
+          docker build -f ./18.0/Dockerfile -t ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/trpl-odoo-docker:v1 ./18.0
+          # Push Docker image to Azure Container Registry
           docker push ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/odoo-docker:${{ inputs.odoo_version }}
 
   deploy:
@@ -97,6 +90,11 @@ jobs:
       - name: Verify VPN Connection
         run: |
           ifconfig | grep tun || (echo "VPN connection failed" && exit 1)
+
+      # Ensure Docker Network Exists
+      - name: Ensure Docker Network Exists
+        run: |
+          echo "${{ secrets.LINUX_VM_PASSWORD_DEVELOPMENT }}" | sudo -S docker network inspect odoo-postgres-network > /dev/null 2>&1 || sudo -S docker network create odoo-postgres-network
 
       # Deploy Odoo Docker container to VM
       - name: Deploy Odoo Docker Container to VM
