@@ -53,7 +53,7 @@ jobs:
 
       - name: Build and Push Odoo Docker Image
         run: |
-          docker build -f ./${{ inputs.odoo_version }}/Dockerfile -t ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/odoo-docker:${{ inputs.odoo_version }} .
+          docker build --no-cache -f ./${{ inputs.odoo_version }}/Dockerfile -t ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/odoo-docker:${{ inputs.odoo_version }} .
           docker push ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/odoo-docker:${{ inputs.odoo_version }}
 
   deploy:
