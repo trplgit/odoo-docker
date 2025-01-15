@@ -1,4 +1,4 @@
-name: CI/CD for Odoo and PostgreSQL
+name: CI/CD for Odoo and PostgreSQL 
 
 on:
   workflow_dispatch: # Manual trigger
@@ -23,7 +23,7 @@ jobs:
 
     steps:
       # Checkout Odoo Docker Repository
-      - name: Checkout Odoo Docker Repository
+      - name: Checkout Odoo Repository
         uses: actions/checkout@v3
         with:
           repository: trplgit/odoo-docker
@@ -50,10 +50,22 @@ jobs:
           username: ${{ vars.ACR_USERNAME }}
           password: ${{ secrets.ACR_PASSWORD }}
 
+      # Verify Odoo Docker repository directory structure
+      - name: List Odoo Docker repository structure
+        run: |
+          echo "Listing the directory structure of the Odoo Docker repository"
+          ls -R ./  # List all files and directories recursively after checkout
+
+      # Check if 18.0 folder exists in Odoo Docker repository
+      - name: Check 18.0 directory inside Odoo Docker repository
+        run: |
+          echo "Checking contents inside the 18.0 folder in Odoo Docker repository"
+          ls -R ./18.0  # List contents inside the 18.0 folder if it exists
+
       # Build and Push PostgreSQL Docker Image
       - name: Build and Push PostgreSQL Docker Image
         run: |
-          docker build -f ${{ inputs.postgres_version }}/alpine3.21/Dockerfile -t ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/postgres:${{ inputs.postgres_version }} ./
+          docker build -f ./postgres/${{ inputs.postgres_version }}/alpine3.21/Dockerfile -t ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/postgres:${{ inputs.postgres_version }} ./postgres
           docker push ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/postgres:${{ inputs.postgres_version }}
 
       # Build and Push Odoo Docker Image
@@ -61,12 +73,10 @@ jobs:
         run: |
           # Ensure we're in the correct directory for the Odoo Dockerfile
           echo "Checking Odoo Docker directory structure"
-          ls -R ./18.0  # List contents of Odoo version folder
-          
-          # Build the Odoo Docker image
+          ls -R ./18.0  # List contents of the 18.0 folder in the Odoo repository
+        
+          # Build and Push Odoo Docker Image from the correct context
           docker build --no-cache -f ./18.0/Dockerfile -t ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/odoo-docker:${{ inputs.odoo_version }} ./18.0
-          
-          # Push the Odoo Docker image to the registry
           docker push ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/odoo-docker:${{ inputs.odoo_version }}
 
   deploy:
@@ -79,6 +89,7 @@ jobs:
       - name: Install OpenVPN
         run: sudo apt-get install -y openvpn
 
+      # Prepare VPN files
       - name: Prepare VPN Files
         run: |
           echo "${{ secrets.VPN_PKCS12_FILE }}" | base64 -d > TRPL-FW-TCP-1194-ci-cd-automation.p12
@@ -100,7 +111,7 @@ jobs:
         run: |
           ifconfig | grep tun || (echo "VPN connection failed" && exit 1)
 
-      # Deploy PostgreSQL Docker Container to VM
+      # Deploy PostgreSQL Docker container to VM
       - name: Deploy PostgreSQL Docker Container to VM
         uses: appleboy/ssh-action@v0.1.6
         with:
@@ -109,7 +120,6 @@ jobs:
           password: ${{ secrets.LINUX_VM_PASSWORD_DEVELOPMENT }}
           port: 22
           script: |
-            # Create network for both Odoo and PostgreSQL
             echo "${{ secrets.LINUX_VM_PASSWORD_DEVELOPMENT }}" | sudo -S docker network create odoo-postgres-network || true
             echo "${{ secrets.LINUX_VM_PASSWORD_DEVELOPMENT }}" | sudo -S docker login ${{ vars.ACR_NAME }}.azurecr.io -u ${{ vars.ACR_USERNAME }} -p ${{ secrets.ACR_PASSWORD }}
             echo "${{ secrets.LINUX_VM_PASSWORD_DEVELOPMENT }}" | sudo -S docker pull ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/postgres:${{ inputs.postgres_version }}
@@ -117,7 +127,7 @@ jobs:
             echo "${{ secrets.LINUX_VM_PASSWORD_DEVELOPMENT }}" | sudo -S docker rm postgres-container || true
             echo "${{ secrets.LINUX_VM_PASSWORD_DEVELOPMENT }}" | sudo -S docker run -d --restart always --name postgres-container --network=odoo-postgres-network -e POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} -p 5432:5432 ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/postgres:${{ inputs.postgres_version }}
 
-      # Deploy Odoo Docker Container to VM
+      # Deploy Odoo Docker container to VM
       - name: Deploy Odoo Docker Container to VM
         uses: appleboy/ssh-action@v0.1.6
         with:
@@ -132,6 +142,7 @@ jobs:
             echo "${{ secrets.LINUX_VM_PASSWORD_DEVELOPMENT }}" | sudo -S docker rm odoo-container || true
             echo "${{ secrets.LINUX_VM_PASSWORD_DEVELOPMENT }}" | sudo -S docker run -d --restart always --name odoo-container --network=odoo-postgres-network -p 8069:8069 ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/odoo-docker:${{ inputs.odoo_version }}
 
+      # Cleanup VPN credentials
       - name: Cleanup VPN Credentials
         run: |
           rm -f vpn-config.ovpn vpn-credentials.txt
