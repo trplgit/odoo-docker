@@ -1,4 +1,4 @@
-name: CI/CD for Odoo and PostgreSQL 
+name: CI/CD for Odoo and PostgreSQL Docker
 
 on:
   workflow_dispatch: # Manual trigger
@@ -23,20 +23,20 @@ jobs:
 
     steps:
       # Checkout Odoo Docker Repository
-      - name: Checkout Odoo Repository
+      - name: Checkout Odoo Docker Repository
         uses: actions/checkout@v3
         with:
           repository: trplgit/odoo-docker
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      # Checkout PostgreSQL Repository
+      # Checkout PostgreSQL Docker Repository
       - name: Checkout PostgreSQL Repository
         uses: actions/checkout@v3
         with:
           repository: trplgit/postgres
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      # Set up Docker Buildx
+      # Set up Docker buildx
       - name: Set up Docker
         uses: docker/setup-buildx-action@v2
         with:
@@ -50,34 +50,41 @@ jobs:
           username: ${{ vars.ACR_USERNAME }}
           password: ${{ secrets.ACR_PASSWORD }}
 
-      # Verify Odoo Docker repository directory structure
+      # List Odoo repository structure to check for version directory
       - name: List Odoo Docker repository structure
         run: |
-          echo "Listing the directory structure of the Odoo Docker repository"
-          ls -R ./  # List all files and directories recursively after checkout
+          echo "Listing Odoo Docker repository structure"
+          ls -R ./  # List all files and directories recursively
 
       # Check if 18.0 folder exists in Odoo Docker repository
-      - name: Check 18.0 directory inside Odoo Docker repository
+      - name: Check Odoo 18.0 directory
         run: |
           echo "Checking contents inside the 18.0 folder in Odoo Docker repository"
-          ls -R ./18.0  # List contents inside the 18.0 folder if it exists
-
-      # Build and Push PostgreSQL Docker Image
-      - name: Build and Push PostgreSQL Docker Image
-        run: |
-          docker build -f ./postgres/${{ inputs.postgres_version }}/alpine3.21/Dockerfile -t ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/postgres:${{ inputs.postgres_version }} ./postgres
-          docker push ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/postgres:${{ inputs.postgres_version }}
+          ls -R ./18.0 || echo "Directory 18.0 does not exist"
 
       # Build and Push Odoo Docker Image
       - name: Build and Push Odoo Docker Image
         run: |
-          # Ensure we're in the correct directory for the Odoo Dockerfile
-          echo "Checking Odoo Docker directory structure"
-          ls -R ./18.0  # List contents of the 18.0 folder in the Odoo repository
-        
-          # Build and Push Odoo Docker Image from the correct context
-          docker build --no-cache -f ./18.0/Dockerfile -t ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/odoo-docker:${{ inputs.odoo_version }} ./18.0
+          docker build -f ./18.0/Dockerfile -t ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/odoo-docker:${{ inputs.odoo_version }} ./18.0
           docker push ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/odoo-docker:${{ inputs.odoo_version }}
+
+      # List PostgreSQL repository structure to check for version directory
+      - name: List PostgreSQL Docker repository structure
+        run: |
+          echo "Listing PostgreSQL Docker repository structure"
+          ls -R ./  # List all files and directories recursively
+
+      # Check if PostgreSQL version folder exists
+      - name: Check PostgreSQL version directory
+        run: |
+          echo "Checking contents inside the version folder for PostgreSQL"
+          ls -R ./${{ inputs.postgres_version }} || echo "Directory for PostgreSQL version does not exist"
+
+      # Build and Push PostgreSQL Docker Image
+      - name: Build and Push PostgreSQL Docker Image
+        run: |
+          docker build -f ./${{ inputs.postgres_version }}/alpine3.21/Dockerfile -t ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/postgres:${{ inputs.postgres_version }} ./${{ inputs.postgres_version }}
+          docker push ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/postgres:${{ inputs.postgres_version }}
 
   deploy:
     name: Deploy to Linux VM
@@ -120,7 +127,6 @@ jobs:
           password: ${{ secrets.LINUX_VM_PASSWORD_DEVELOPMENT }}
           port: 22
           script: |
-            echo "${{ secrets.LINUX_VM_PASSWORD_DEVELOPMENT }}" | sudo -S docker network create odoo-postgres-network || true
             echo "${{ secrets.LINUX_VM_PASSWORD_DEVELOPMENT }}" | sudo -S docker login ${{ vars.ACR_NAME }}.azurecr.io -u ${{ vars.ACR_USERNAME }} -p ${{ secrets.ACR_PASSWORD }}
             echo "${{ secrets.LINUX_VM_PASSWORD_DEVELOPMENT }}" | sudo -S docker pull ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/postgres:${{ inputs.postgres_version }}
             echo "${{ secrets.LINUX_VM_PASSWORD_DEVELOPMENT }}" | sudo -S docker stop postgres-container || true
