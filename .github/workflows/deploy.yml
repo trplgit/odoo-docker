@@ -54,10 +54,11 @@ jobs:
       # Build and Push Odoo Docker Image
       - name: Build and Push Odoo Docker Image
         run: |
-          # Ensure the Docker context is set to the 18.0 directory
+          # Build the Docker image with the appropriate tag
           docker build -f ./18.0/Dockerfile -t ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/trpl-odoo-docker:v1 ./18.0
-          # Push Docker image to Azure Container Registry
-          docker push ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/odoo-docker:${{ inputs.odoo_version }}
+          
+          # Push Docker image to Azure Container Registry with the correct tag
+          docker push ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/trpl-odoo-docker:v1
 
   deploy:
     name: Deploy to Linux VM
@@ -72,8 +73,8 @@ jobs:
       # Prepare VPN files
       - name: Prepare VPN Files
         run: |
-          echo "${{ secrets.VPN_PKCS12_FILE }}" | base64 -d > TRPL-FW-TCP-1194-ci-cd-automation.p12
-          echo "${{ secrets.VPN_TLS_KEY_FILE }}" | base64 -d > TRPL-FW-TCP-1194-ci-cd-automation-tls.key
+        echo "${{ secrets.VPN_PKCS12_FILE }}" | base64 -d > TRPL-FW-TCP-1194-ci-cd-automation.p12
+        echo "${{ secrets.VPN_TLS_KEY_FILE }}" | base64 -d > TRPL-FW-TCP-1194-ci-cd-automation-tls.key
 
       # Connect to VPN
       - name: Connect to VPN
@@ -91,11 +92,6 @@ jobs:
         run: |
           ifconfig | grep tun || (echo "VPN connection failed" && exit 1)
 
-      # Ensure Docker Network Exists
-      - name: Ensure Docker Network Exists
-        run: |
-          echo "${{ secrets.LINUX_VM_PASSWORD_DEVELOPMENT }}" | sudo -S docker network inspect odoo-postgres-network > /dev/null 2>&1 || sudo -S docker network create odoo-postgres-network
-
       # Deploy Odoo Docker container to VM
       - name: Deploy Odoo Docker Container to VM
         uses: appleboy/ssh-action@v0.1.6
@@ -106,12 +102,10 @@ jobs:
           port: 22
           script: |
             echo "${{ secrets.LINUX_VM_PASSWORD_DEVELOPMENT }}" | sudo -S docker login ${{ vars.ACR_NAME }}.azurecr.io -u ${{ vars.ACR_USERNAME }} -p ${{ secrets.ACR_PASSWORD }}
-            echo "${{ secrets.LINUX_VM_PASSWORD_DEVELOPMENT }}" | sudo -S docker pull ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/odoo-docker:${{ inputs.odoo_version }}
+            echo "${{ secrets.LINUX_VM_PASSWORD_DEVELOPMENT }}" | sudo -S docker pull ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/trpl-odoo-docker:v1
             echo "${{ secrets.LINUX_VM_PASSWORD_DEVELOPMENT }}" | sudo -S docker stop odoo-container || true
             echo "${{ secrets.LINUX_VM_PASSWORD_DEVELOPMENT }}" | sudo -S docker rm odoo-container || true
-            echo "${{ secrets.LINUX_VM_PASSWORD_DEVELOPMENT }}" | sudo -S docker run -d --restart always --name odoo-container --network=odoo-postgres-network -p 8069:8069 ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/odoo-docker:${{ inputs.odoo_version }}
+            echo "${{ secrets.LINUX_VM_PASSWORD_DEVELOPMENT }}" | sudo -S docker run -d --restart always --name odoo-container --network=odoo-postgres-network -p 8069:8069 ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/trpl-odoo-docker:v1
 
       # Cleanup VPN credentials
-      - name: Cleanup VPN Credentials
-        run: |
-          rm -f vpn-config.ovpn vpn-credentials.txt
+      - name: C
