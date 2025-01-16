@@ -121,7 +121,7 @@ jobs:
             echo "${{ secrets.LINUX_VM_PASSWORD_DEVELOPMENT }}" | sudo -S docker rm postgres-container || true
 
             # Run Postgres container (PostgreSQL 17)
-            echo "${{ secrets.LINUX_VM_PASSWORD_DEVELOPMENT }}" | sudo -S docker run -d --restart always --name postgres-container --network=odoo-postgres-network -e POSTGRES_PASSWORD=mysecretpassword -p 5433:5432 ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/trpl-postgres-docker:v17
+            echo "${{ secrets.LINUX_VM_PASSWORD_DEVELOPMENT }}" | sudo -S docker run -d --restart always --name postgres-container --network=odoo-postgres-network -e POSTGRES_PASSWORD=mysecretpassword -p 5433:5433 ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/trpl-postgres-docker:v17
 
             # Run Odoo container
             echo "${{ secrets.LINUX_VM_PASSWORD_DEVELOPMENT }}" | sudo -S docker run -d --restart always --name odoo-container --network=odoo-postgres-network -p 8069:8069 ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/trpl-odoo-docker:v1
