@@ -9,7 +9,7 @@ fi
 
 # Set the postgres database host, port, user, and password according to the environment
 # If the environment variable is not set, use default values
-: ${HOST:=${DB_PORT_5432_TCP_ADDR:='db'}}
+: ${HOST:=${DB_PORT_5432_TCP_ADDR:='postgres-container'}}
 : ${PORT:=${DB_PORT_5432_TCP_PORT:=5433}}  # Change default port to 5433
 : ${USER:=${DB_ENV_POSTGRES_USER:=${POSTGRES_USER:='odoo'}}}
 : ${PASSWORD:=${DB_ENV_POSTGRES_PASSWORD:=${POSTGRES_PASSWORD:='odoo'}}}
