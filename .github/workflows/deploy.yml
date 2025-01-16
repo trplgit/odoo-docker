@@ -101,6 +101,9 @@ jobs:
           password: ${{ secrets.LINUX_VM_PASSWORD_DEVELOPMENT }}
           port: 22
           script: |
+            # Ensure user has permissions to access Docker
+            sudo usermod -aG docker $USER  # Adding user to docker group
+            
             # List existing Docker networks to debug
             docker network ls
 
@@ -108,14 +111,14 @@ jobs:
             docker network create odoo-postgres-network || echo "Network already exists"
 
             # Pull the latest image
-            sudo docker pull ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/trpl-odoo-docker:v1
+            echo "${{ secrets.LINUX_VM_PASSWORD_DEVELOPMENT }}" | sudo -S docker pull ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/trpl-odoo-docker:v1
             
             # Stop and remove existing container if any
-            sudo docker stop odoo-container || true
-            sudo docker rm odoo-container || true
+            echo "${{ secrets.LINUX_VM_PASSWORD_DEVELOPMENT }}" | sudo -S docker stop odoo-container || true
+            echo "${{ secrets.LINUX_VM_PASSWORD_DEVELOPMENT }}" | sudo -S docker rm odoo-container || true
 
             # Run the Odoo container on the new or existing network
-            sudo docker run -d --restart always --name odoo-container --network=odoo-postgres-network -p 8069:8069 ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/trpl-odoo-docker:v1
+            echo "${{ secrets.LINUX_VM_PASSWORD_DEVELOPMENT }}" | sudo -S docker run -d --restart always --name odoo-container --network=odoo-postgres-network -p 8069:8069 ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/trpl-odoo-docker:v1
 
       # Cleanup VPN credentials
       - name: Cleanup VPN Credentials
