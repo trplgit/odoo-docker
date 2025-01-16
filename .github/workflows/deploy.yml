@@ -92,6 +92,11 @@ jobs:
         run: |
           ifconfig | grep tun || (echo "VPN connection failed" && exit 1)
 
+      # Create Docker network if it doesn't exist
+      - name: Create Docker Network
+        run: |
+          docker network create odoo-postgres-network || true
+
       # Deploy Odoo Docker container to VM
       - name: Deploy Odoo Docker Container to VM
         uses: appleboy/ssh-action@v0.1.6
