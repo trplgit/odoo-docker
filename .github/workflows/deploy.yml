@@ -1,126 +1,61 @@
-name: CI/CD for Odoo Docker
+deploy:
+  name: Deploy to Linux VM
+  runs-on: ubuntu-latest
+  needs: build-and-push
+  steps:
+    # Install OpenVPN
+    - name: Install OpenVPN
+      run: sudo apt-get install -y openvpn
 
-on:
-  workflow_dispatch: # Manual trigger
-    inputs:
-      environment:
-        description: 'Environment to deploy (Development/Production)'
-        required: true
-        default: 'development'
-      odoo_version:
-        description: 'Odoo Version'
-        required: true
-        default: '18.0'
+    # Prepare VPN files
+    - name: Prepare VPN Files
+      run: |
+        echo "${{ secrets.VPN_PKCS12_FILE }}" | base64 -d > TRPL-FW-TCP-1194-ci-cd-automation.p12
+        echo "${{ secrets.VPN_TLS_KEY_FILE }}" | base64 -d > TRPL-FW-TCP-1194-ci-cd-automation-tls.key
 
-jobs:
-  build-and-push:
-    name: Build and Push Docker Image for Odoo
-    runs-on: ubuntu-latest
+    # Connect to VPN
+    - name: Connect to VPN
+      run: |
+        echo "${{ secrets.VPN_CONFIG_FILE }}" > vpn-config.ovpn
+        echo -e "${{ vars.VPN_USERNAME }}\n${{ secrets.VPN_PASSWORD }}" > vpn-credentials.txt
+        sudo openvpn --config vpn-config.ovpn --auth-user-pass vpn-credentials.txt --daemon
 
-    steps:
-      # Checkout Odoo Docker repository
-      - name: Checkout Odoo Repository
-        uses: actions/checkout@v3
-        with:
-          repository: trplgit/odoo-docker
-          token: ${{ secrets.GITHUB_TOKEN }}
+    # Wait for VPN connection
+    - name: Wait for VPN Connection
+      run: sleep 15
 
-      # Set up Docker buildx
-      - name: Set up Docker
-        uses: docker/setup-buildx-action@v2
-        with:
-          version: latest
+    # Verify VPN connection
+    - name: Verify VPN Connection
+      run: |
+        ifconfig | grep tun || (echo "VPN connection failed" && exit 1)
 
-      # Log in to Azure Container Registry
-      - name: Log in to Azure Container Registry
-        uses: azure/docker-login@v1
-        with:
-          login-server: ${{ vars.ACR_NAME }}.azurecr.io
-          username: ${{ vars.ACR_USERNAME }}
-          password: ${{ secrets.ACR_PASSWORD }}
+    # Add user to Docker group to allow Docker commands without sudo
+    - name: Add user to Docker group
+      run: |
+        sudo usermod -aG docker $USER
+        newgrp docker || true
 
-      # Verify Odoo Docker repository directory structure
-      - name: List Odoo Docker repository structure
-        run: |
-          echo "Listing the directory structure of the Odoo Docker repository"
-          ls -R ./  # List all files and directories recursively after checkout
+    # Create Docker network if it doesn't exist
+    - name: Create Docker Network if not exists
+      run: |
+        echo "${{ secrets.LINUX_VM_PASSWORD_DEVELOPMENT }}" | sudo -S docker network create odoo-postgres-network || echo "Network already exists"
 
-      # Check if 18.0 folder exists in Odoo Docker repository
-      - name: Check 18.0 directory inside Odoo Docker repository
-        run: |
-          echo "Checking contents inside the 18.0 folder in Odoo Docker repository"
-          ls -R ./18.0  # List contents inside the 18.0 folder
+    # Deploy Odoo Docker container to VM
+    - name: Deploy Odoo Docker Container to VM
+      uses: appleboy/ssh-action@v0.1.6
+      with:
+        host: ${{ vars.LINUX_VM_HOST_DEVELOPMENT }}
+        username: ${{ vars.LINUX_VM_USERNAME_DEVELOPMENT }}
+        password: ${{ secrets.LINUX_VM_PASSWORD_DEVELOPMENT }}
+        port: 22
+        script: |
+          echo "${{ secrets.LINUX_VM_PASSWORD_DEVELOPMENT }}" | sudo -S docker login ${{ vars.ACR_NAME }}.azurecr.io -u ${{ vars.ACR_USERNAME }} -p ${{ secrets.ACR_PASSWORD }}
+          echo "${{ secrets.LINUX_VM_PASSWORD_DEVELOPMENT }}" | sudo -S docker pull ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/trpl-odoo-docker:v1
+          echo "${{ secrets.LINUX_VM_PASSWORD_DEVELOPMENT }}" | sudo -S docker stop odoo-container || true
+          echo "${{ secrets.LINUX_VM_PASSWORD_DEVELOPMENT }}" | sudo -S docker rm odoo-container || true
+          echo "${{ secrets.LINUX_VM_PASSWORD_DEVELOPMENT }}" | sudo -S docker run -d --restart always --name odoo-container --network=odoo-postgres-network -p 8069:8069 ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/trpl-odoo-docker:v1
 
-      # Build and Push Odoo Docker Image
-      - name: Build and Push Odoo Docker Image
-        run: |
-          # Build the Docker image with the appropriate tag
-          docker build -f ./18.0/Dockerfile -t ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/trpl-odoo-docker:v1 ./18.0
-          
-          # Push Docker image to Azure Container Registry with the correct tag
-          docker push ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/trpl-odoo-docker:v1
-
-  deploy:
-    name: Deploy to Linux VM
-    runs-on: ubuntu-latest
-    needs: build-and-push
-
-    steps:
-      # Install OpenVPN
-      - name: Install OpenVPN
-        run: sudo apt-get install -y openvpn
-
-      # Prepare VPN files
-      - name: Prepare VPN Files
-        run: |
-          echo "${{ secrets.VPN_PKCS12_FILE }}" | base64 -d > TRPL-FW-TCP-1194-ci-cd-automation.p12
-          echo "${{ secrets.VPN_TLS_KEY_FILE }}" | base64 -d > TRPL-FW-TCP-1194-ci-cd-automation-tls.key
-
-      # Connect to VPN
-      - name: Connect to VPN
-        run: |
-          echo "${{ secrets.VPN_CONFIG_FILE }}" > vpn-config.ovpn
-          echo -e "${{ vars.VPN_USERNAME }}\n${{ secrets.VPN_PASSWORD }}" > vpn-credentials.txt
-          sudo openvpn --config vpn-config.ovpn --auth-user-pass vpn-credentials.txt --daemon
-
-      # Wait for VPN connection
-      - name: Wait for VPN Connection
-        run: sleep 15
-
-      # Verify VPN connection
-      - name: Verify VPN Connection
-        run: |
-          ifconfig | grep tun || (echo "VPN connection failed" && exit 1)
-
-      # Deploy to VM: Create Docker network on the VM if Not Present
-      - name: Ensure Docker Network Exists on VM
-        uses: appleboy/ssh-action@v0.1.6
-        with:
-          host: ${{ vars.LINUX_VM_HOST_DEVELOPMENT }}
-          username: ${{ vars.LINUX_VM_USERNAME_DEVELOPMENT }}
-          password: ${{ secrets.LINUX_VM_PASSWORD_DEVELOPMENT }}
-          port: 22
-          script: |
-            # Ensure user has permissions to access Docker
-            sudo usermod -aG docker $USER  # Adding user to docker group
-            
-            # List existing Docker networks to debug
-            docker network ls
-
-            # Create the network if it does not exist
-            docker network create odoo-postgres-network || echo "Network already exists"
-
-            # Pull the latest image
-            echo "${{ secrets.LINUX_VM_PASSWORD_DEVELOPMENT }}" | sudo -S docker pull ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/trpl-odoo-docker:v1
-            
-            # Stop and remove existing container if any
-            echo "${{ secrets.LINUX_VM_PASSWORD_DEVELOPMENT }}" | sudo -S docker stop odoo-container || true
-            echo "${{ secrets.LINUX_VM_PASSWORD_DEVELOPMENT }}" | sudo -S docker rm odoo-container || true
-
-            # Run the Odoo container on the new or existing network
-            echo "${{ secrets.LINUX_VM_PASSWORD_DEVELOPMENT }}" | sudo -S docker run -d --restart always --name odoo-container --network=odoo-postgres-network -p 8069:8069 ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/trpl-odoo-docker:v1
-
-      # Cleanup VPN credentials
-      - name: Cleanup VPN Credentials
-        run: |
-          rm -f vpn-config.ovpn vpn-credentials.txt
+    # Cleanup VPN credentials
+    - name: Cleanup VPN Credentials
+      run: |
+        rm -f vpn-config.ovpn vpn-credentials.txt
