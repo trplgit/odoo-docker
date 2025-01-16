@@ -18,19 +18,21 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Checkout Odoo Docker repository
+      # Checkout Odoo Docker repository into a specific directory
       - name: Checkout Odoo Repository
         uses: actions/checkout@v3
         with:
           repository: trplgit/odoo-docker
           token: ${{ secrets.GITHUB_TOKEN }}
+          path: odoo-docker  # Checkout into the 'odoo-docker' directory
 
-      # Checkout Postgres Docker repository (Postgres 17)
+      # Checkout Postgres Docker repository (Postgres 17) into a specific directory
       - name: Checkout Postgres Repository
         uses: actions/checkout@v3
         with:
           repository: trplgit/postgres
           token: ${{ secrets.GITHUB_TOKEN }}
+          path: postgres  # Checkout into the 'postgres' directory
 
       # Set up Docker buildx
       - name: Set up Docker
@@ -49,13 +51,13 @@ jobs:
       # Build and Push Odoo Docker Image
       - name: Build and Push Odoo Docker Image
         run: |
-          docker build -f ./18.0/Dockerfile -t ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/trpl-odoo-docker:v1 ./18.0
+          docker build -f ./odoo-docker/18.0/Dockerfile -t ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/trpl-odoo-docker:v1 ./odoo-docker/18.0
           docker push ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/trpl-odoo-docker:v1
 
       # Build and Push Postgres Docker Image for PostgreSQL 17
       - name: Build and Push Postgres Docker Image
         run: |
-          docker build -f ./17/alpine3.21/Dockerfile -t ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/trpl-postgres-docker:v17 ./17/alpine3.21
+          docker build -f ./postgres/17/alpine3.21/Dockerfile -t ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/trpl-postgres-docker:v17 ./postgres/17/alpine3.21
           docker push ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/trpl-postgres-docker:v17
 
   deploy:
@@ -111,12 +113,8 @@ jobs:
           port: 22
           script: |
             echo "${{ secrets.LINUX_VM_PASSWORD_DEVELOPMENT }}" | sudo -S docker login ${{ vars.ACR_NAME }}.azurecr.io -u ${{ vars.ACR_USERNAME }} -p ${{ secrets.ACR_PASSWORD }}
-            
-            # Pull both Odoo and Postgres Docker images
             echo "${{ secrets.LINUX_VM_PASSWORD_DEVELOPMENT }}" | sudo -S docker pull ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/trpl-odoo-docker:v1
             echo "${{ secrets.LINUX_VM_PASSWORD_DEVELOPMENT }}" | sudo -S docker pull ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/trpl-postgres-docker:v17
-
-            # Stop and remove any existing containers (Odoo and Postgres)
             echo "${{ secrets.LINUX_VM_PASSWORD_DEVELOPMENT }}" | sudo -S docker stop odoo-container || true
             echo "${{ secrets.LINUX_VM_PASSWORD_DEVELOPMENT }}" | sudo -S docker rm odoo-container || true
             echo "${{ secrets.LINUX_VM_PASSWORD_DEVELOPMENT }}" | sudo -S docker stop postgres-container || true
