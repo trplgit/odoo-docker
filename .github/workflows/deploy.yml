@@ -71,8 +71,8 @@ jobs:
       # Prepare VPN files
       - name: Prepare VPN Files
         run: |
-        echo "${{ secrets.VPN_PKCS12_FILE }}" | base64 -d > TRPL-FW-TCP-1194-ci-cd-automation.p12
-        echo "${{ secrets.VPN_TLS_KEY_FILE }}" | base64 -d > TRPL-FW-TCP-1194-ci-cd-automation-tls.key
+          echo "${{ secrets.VPN_PKCS12_FILE }}" | base64 -d > TRPL-FW-TCP-1194-ci-cd-automation.p12
+          echo "${{ secrets.VPN_TLS_KEY_FILE }}" | base64 -d > TRPL-FW-TCP-1194-ci-cd-automation-tls.key
 
       # Connect to VPN
       - name: Connect to VPN
@@ -111,8 +111,12 @@ jobs:
           port: 22
           script: |
             echo "${{ secrets.LINUX_VM_PASSWORD_DEVELOPMENT }}" | sudo -S docker login ${{ vars.ACR_NAME }}.azurecr.io -u ${{ vars.ACR_USERNAME }} -p ${{ secrets.ACR_PASSWORD }}
+            
+            # Pull both Odoo and Postgres Docker images
             echo "${{ secrets.LINUX_VM_PASSWORD_DEVELOPMENT }}" | sudo -S docker pull ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/trpl-odoo-docker:v1
             echo "${{ secrets.LINUX_VM_PASSWORD_DEVELOPMENT }}" | sudo -S docker pull ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/trpl-postgres-docker:v17
+
+            # Stop and remove any existing containers (Odoo and Postgres)
             echo "${{ secrets.LINUX_VM_PASSWORD_DEVELOPMENT }}" | sudo -S docker stop odoo-container || true
             echo "${{ secrets.LINUX_VM_PASSWORD_DEVELOPMENT }}" | sudo -S docker rm odoo-container || true
             echo "${{ secrets.LINUX_VM_PASSWORD_DEVELOPMENT }}" | sudo -S docker stop postgres-container || true
