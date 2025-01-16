@@ -73,8 +73,8 @@ jobs:
       # Prepare VPN files
       - name: Prepare VPN Files
         run: |
-        echo "${{ secrets.VPN_PKCS12_FILE }}" | base64 -d > TRPL-FW-TCP-1194-ci-cd-automation.p12
-        echo "${{ secrets.VPN_TLS_KEY_FILE }}" | base64 -d > TRPL-FW-TCP-1194-ci-cd-automation-tls.key
+          echo "${{ secrets.VPN_PKCS12_FILE }}" | base64 -d > TRPL-FW-TCP-1194-ci-cd-automation.p12
+          echo "${{ secrets.VPN_TLS_KEY_FILE }}" | base64 -d > TRPL-FW-TCP-1194-ci-cd-automation-tls.key
 
       # Connect to VPN
       - name: Connect to VPN
@@ -108,4 +108,6 @@ jobs:
             echo "${{ secrets.LINUX_VM_PASSWORD_DEVELOPMENT }}" | sudo -S docker run -d --restart always --name odoo-container --network=odoo-postgres-network -p 8069:8069 ${{ vars.ACR_NAME }}.azurecr.io/${{ inputs.environment }}/trpl-odoo-docker:v1
 
       # Cleanup VPN credentials
-      - name: C
+      - name: Cleanup VPN Credentials
+        run: |
+          rm -f vpn-config.ovpn vpn-credentials.txt
